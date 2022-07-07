@@ -20,37 +20,6 @@
 import pandas as pd
 import statistics
 
-# %%
-# Read all crash data
-D1_data = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Formatting Data")
-D2_data = pd.read_excel('data/D2_LWA_Input.xlsx', sheet_name = "Formatting Data")
-D6_data = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Formatting Data")
-
-# Read relevant curve data
-D1_curve_data = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Curve Info", )
-D6_curve_data = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Curve Info")
-
-# Create Filter Datasets
-D1_single_vehicle = D1_data[D1_data["Single Vehicle"] == "Yes"]
-D1_curve_crashes = D1_data[D1_data["Vehicle_Ma"].str.contains("Negotiating a Curve")]
-D1_wet_road = D1_data[D1_data["Surface_Co"] == "Wet"]
-
-D6_single_vehicle = D6_data[D6_data["Single Vehicle"] == "Yes"]
-D6_curve_crashes = D6_data[D6_data["Vehicle_Ma"].str.contains("Negotiating a Curve")]
-D6_wet_road = D6_data[D6_data["Surface_Co"] == "Wet"]
-
-# %%
-# Import SPF coefficients
-D1_total_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Total Crashes SPF Coefficients", index_col = 0)
-D1_single_vehicle_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Single Vehicle SPF Coefficients", index_col = 0)
-D1_curve_crashes_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Curve Crashes SPF Coefficients", index_col = 0)
-D1_wet_road_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Wet Road SPF Coefficients", index_col = 0)
-
-D6_total_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Total Crashes SPF Coefficients", index_col = 0)
-D6_single_vehicle_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Single Vehicle SPF Coefficients", index_col = 0)
-D6_curve_crashes_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Curve Crashes SPF Coefficients", index_col = 0)
-D6_wet_road_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Wet Road SPF Coefficients", index_col = 0)
-
 
 # %% [markdown]
 # ## Compute Naive CMFs
@@ -77,27 +46,27 @@ def count_curve_crashes(data: pd.DataFrame, curve_data: pd.DataFrame):
     # Finding crashes before treatment
     before_data = data[data["Relation To Treatment"] == "before treatment"]
     before_crash_counts = before_data.groupby("CurveID")["CurveID"].count().to_frame("Crashes Before")
-    output_curve_data = pd.merge(curve_data, before_crash_counts, on="CurveID", how="left")
-    output_curve_data["Crashes Before"].fillna(0, inplace=True)
+    curve_data = curve_data.join(before_crash_counts, on="CurveID", how="left")
+    curve_data.loc[:, "Crashes Before"] = curve_data.loc[:, "Crashes Before"].fillna(0)
 
     # Finding crashes after treatment
     after_data = data[data["Relation To Treatment"] == "after treatment"]
     after_crash_counts = after_data.groupby("CurveID")["CurveID"].count().to_frame("Crashes After")
-    output_curve_data = pd.merge(output_curve_data, after_crash_counts, on="CurveID", how="left")
-    output_curve_data["Crashes After"].fillna(0, inplace=True)
+    curve_data = curve_data.join(after_crash_counts, on="CurveID", how="left")
+    curve_data.loc[:, "Crashes After"] = curve_data.loc[:, "Crashes After"].fillna(0)
 
     # Finding unknown crashes
     unknown_data = data[data["Relation To Treatment"] == "unknown"]
     unknown_crash_counts = unknown_data.groupby("CurveID")["CurveID"].count().to_frame("Unknown Crashes")
-    output_curve_data = pd.merge(output_curve_data, unknown_crash_counts, on="CurveID", how="left")
-    output_curve_data["Unknown Crashes"].fillna(0, inplace=True)
+    curve_data = curve_data.join(unknown_crash_counts, on="CurveID", how="left")
+    curve_data.loc[:, "Unknown Crashes"] = curve_data.loc[:, "Unknown Crashes"].fillna(0)
 
     # Finding total crashes
     total_crash_counts = data.groupby("CurveID")["CurveID"].count().to_frame("Total Crashes")
-    output_curve_data = pd.merge(output_curve_data, total_crash_counts, on="CurveID", how="left")
-    output_curve_data["Total Crashes"].fillna(0, inplace=True)
+    curve_data = curve_data.join(total_crash_counts, on="CurveID", how="left")
+    curve_data.loc[:, "Total Crashes"] = curve_data.loc[:, "Total Crashes"].fillna(0)
     
-    return output_curve_data
+    return curve_data
 
 def calculate_frequencies(curve_data: pd.DataFrame, years_before_treatment, years_after_treatment):
     # Helper function to calculate crash frequencies on curves
@@ -139,13 +108,15 @@ def calculate_SPF_frequencies(curve_data: pd.DataFrame, coefficients: pd.DataFra
     ln_deflection_angle = coefficients.loc["log(deflection_angle)"][0] / years
     length = coefficients.loc["length"][0] / years
     ln_AADT = coefficients.loc["log(AADT)"][0] / years
+    ln_BBI = coefficients.loc["log(BBI)"][0] / years
+    speed_diff = coefficients.loc["Speed Diff"][0] / years
     
     # Calculate the SPF frequency before
-    SPF_before = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT Before)"] * ln_AADT)
+    SPF_before = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT Before)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff)
     curve_data = pd.merge(curve_data, SPF_before.to_frame("SPF Frequency Before"), left_index=True, right_index=True)
-    
+
     # Calculate the SPF frequency after
-    SPF_after = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT After)"] * ln_AADT)
+    SPF_after = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT After)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff)
     curve_data = pd.merge(curve_data, SPF_after.to_frame("SPF Frequency After"), left_index=True, right_index=True)
     
     return curve_data
@@ -181,7 +152,7 @@ def calculate_cumulative_values(curve_data: pd.DataFrame, coefficients: pd.DataF
     
     return cumulative_dict
 
-def calculate_final_outputs(cumulative_df: pd.DataFrame):
+def calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict):
     # Helper function to calculate variance, CMF, and standard error
     
     # Calculate variance of expected after
@@ -220,88 +191,77 @@ def empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficien
     curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
     curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
     curve_data = calculate_SPF_frequencies(curve_data, coefficients)
-    cumulative_df = calculate_cumulative_values(curve_data, coefficients)
-    results_dict = calculate_final_outputs(cumulative_dict)
-    return results_dict
+    cumulative_dict = calculate_cumulative_values(curve_data, coefficients)
+    results_dict = calculate_final_outputs(curve_data, cumulative_dict)
+    return results_dict, AADT_bins, crash_bins
 
+
+# %% [markdown]
+# ## Import Data
 
 # %%
-# Testing
-data = D1_data.copy()
-curve_data = D1_curve_data.copy()
-coefficients = D1_total_coeff
-years_before_treatment = 4
-years_after_treatment = 3
+# Read all crash data
+D1_data = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Formatting Data")
+D2_data = pd.read_excel('data/D2_LWA_Input.xlsx', sheet_name = "Formatting Data")
+D6_data = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Formatting Data")
 
-curve_data = count_curve_crashes(data, curve_data)
-curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
-curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
-curve_data = calculate_SPF_frequencies(curve_data, coefficients)
-cumulative_dict = calculate_cumulative_values(curve_data, coefficients)
-results_dict = calculate_final_outputs(cumulative_dict)
-display(results_dict)
+# Read relevant curve data
+D1_curve_data = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Curve Info", )
+D6_curve_data = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Curve Info")
 
-function_results = empirical_bayes_CMF(data, curve_data, coefficients, years_before_treatment=4, years_after_treatment=3)
-display(function_results)
+# Create Filter Datasets
+D1_single_vehicle = D1_data[D1_data["Single Vehicle"] == "Yes"]
+D1_curve_crashes = D1_data[D1_data["Vehicle_Ma"].str.contains("Negotiating a Curve")]
+D1_wet_road = D1_data[D1_data["Surface_Co"] == "Wet"]
 
-# display(test_curve_data)
-# display(curve_data)
+D2_single_vehicle = D2_data[D2_data["Single Vehicle"] == "Yes"]
+D2_curve_crashes = D2_data[D2_data["Vehicle_Ma"].str.contains("Negotiating a Curve")]
+D2_wet_road = D2_data[D2_data["Surface_Co"] == "Wet"]
+
+D6_single_vehicle = D6_data[D6_data["Single Vehicle"] == "Yes"]
+D6_curve_crashes = D6_data[D6_data["Vehicle_Ma"].str.contains("Negotiating a Curve")]
+D6_wet_road = D6_data[D6_data["Surface_Co"] == "Wet"]
+
+# %%
+# Import SPF coefficients
+D1_total_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Total Crashes SPF Coefficients", index_col = 0)
+D1_single_vehicle_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Single Vehicle SPF Coefficients", index_col = 0)
+D1_curve_crashes_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Curve Crashes SPF Coefficients", index_col = 0)
+D1_wet_road_coeff = pd.read_excel('data/D1_Phonolite_Input.xlsx', sheet_name = "Wet Road SPF Coefficients", index_col = 0)
+
+D6_total_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Total Crashes SPF Coefficients", index_col = 0)
+D6_single_vehicle_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Single Vehicle SPF Coefficients", index_col = 0)
+D6_curve_crashes_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Curve Crashes SPF Coefficients", index_col = 0)
+D6_wet_road_coeff = pd.read_excel('data/D6_HFST_Input.xlsx', sheet_name = "Wet Road SPF Coefficients", index_col = 0)
 
 # %% [markdown]
 # ## Naive CMFs
 
+# %% [markdown]
+# District 1 Phonolite
+
 # %%
-naive_CMF(D6_data)
+naive_CMF(D1_data), naive_CMF(D1_single_vehicle), naive_CMF(D1_curve_crashes), naive_CMF(D1_wet_road)
 
 # %% [markdown]
-# ### Total CMF
+# District 2 LWA
 
 # %%
-# pivot table
-total_cmf_table = get_pivot_counts(data=crash_data, field='Relation_To_HFST_Treatment_No_Covid')
-total_cmf_table
-
-
-# %%
-# cmf results
-total_cmf_table = get_pivot_counts(data=crash_data, field='Relation_To_HFST_Treatment_No_Covid')
-total_cmf = compute_cmf(total_cmf_table, years_after_treatment=3, years_before_treatment=3)
-print("total cmf without covid data: ", total_cmf.round(2))
-
-total_cmf_table = get_pivot_counts(data=crash_data, field='Relation_To_HFST_Treatment')
-total_cmf = compute_cmf(total_cmf_table, years_after_treatment=4, years_before_treatment=3)
-print("total cmf with covid data: ", total_cmf.round(2))
-
+naive_CMF(D2_data), naive_CMF(D2_single_vehicle), naive_CMF(D2_curve_crashes), naive_CMF(D2_wet_road)
 
 # %% [markdown]
-# ### Single Vehicle CMF
-#
+# District 6 HFST
 
 # %%
-# cmf results
-filtered_data = crash_data[crash_data['Single_Vehicle']]
-pivot_table = get_pivot_counts(data=filtered_data, field='Relation_To_HFST_Treatment_No_Covid')
-cmf = compute_cmf(pivot_table, years_after_treatment=3, years_before_treatment=3)
-print("total cmf without covid data: ", cmf.round(2))
-
-filtered_data = crash_data[crash_data['Single_Vehicle']]
-pivot_table = get_pivot_counts(data=filtered_data, field='Relation_To_HFST_Treatment')
-cmf = compute_cmf(pivot_table, years_after_treatment=4, years_before_treatment=3)
-print("total cmf with covid data: ", cmf.round(2))
-
+naive_CMF(D6_data), naive_CMF(D6_single_vehicle), naive_CMF(D6_curve_crashes), naive_CMF(D6_wet_road)
 
 # %% [markdown]
-# ### Surface Condition
+# ## Empirical CMFs
 
 # %%
-# cmf results
-filtered_data = crash_data[crash_data['Surface_Co']=='Wet']
-pivot_table = get_pivot_counts(data=filtered_data, field='Relation_To_HFST_Treatment_No_Covid')
-cmf = compute_cmf(pivot_table, years_after_treatment=3, years_before_treatment=3)
-print("total cmf without covid data: ", cmf.round(2))
+empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff)
 
-filtered_data = crash_data[crash_data['Surface_Co']=='Wet']
-pivot_table = get_pivot_counts(data=filtered_data, field='Relation_To_HFST_Treatment')
-cmf = compute_cmf(pivot_table, years_after_treatment=4, years_before_treatment=3)
-print("total cmf with covid data: ", cmf.round(2))
+# %%
+empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff)
 
+# %%
