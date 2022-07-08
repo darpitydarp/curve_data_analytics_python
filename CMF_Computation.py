@@ -259,9 +259,43 @@ naive_CMF(D6_data), naive_CMF(D6_single_vehicle), naive_CMF(D6_curve_crashes), n
 # ## Empirical CMFs
 
 # %%
-empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff)
+display(empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff))
+display(empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff))
+display(empirical_bayes_CMF(D6_curve_crashes, D6_curve_data, D6_curve_crashes_coeff))
+display(empirical_bayes_CMF(D6_wet_road, D6_curve_data, D6_wet_road_coeff))
 
 # %%
-empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff)
+display(empirical_bayes_CMF(D1_data, D1_curve_data, D1_total_coeff))
+display(empirical_bayes_CMF(D1_single_vehicle, D1_curve_data, D1_single_vehicle_coeff))
+display(empirical_bayes_CMF(D1_curve_crashes, D1_curve_data, D1_curve_crashes_coeff))
+display(empirical_bayes_CMF(D1_wet_road, D1_curve_data, D1_wet_road_coeff))
+
+# %% [markdown]
+# ## Filter by AADT and Crash Frequency Ratings
+
+# %%
+filters = [("Low AADT", "Low Crash Frequency"),
+           ("Medium AADT", "Low Crash Frequency"),
+           ("High AADT", "Low Crash Frequency"),
+           ("Low AADT", "Low Crash Frequency"),
+           ("Medium AADT", "Low Crash Frequency"),
+           ("High AADT", "Low Crash Frequency"),
+          ]
+
+# %% [markdown]
+# D6 Total
+
+# %%
+# for filter in filters:
+    # print(filter[0] + " and " + filter[1])
+    
+filter = ("Low AADT", "Low Crash Frequency")
+data = D6_data
+curve_data = D6_curve_data
+coefficients = D6_total_coeff
+years_before_treatment = 4
+years_after_treatment = 3
+
+display(data)
 
 # %%
