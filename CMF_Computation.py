@@ -197,6 +197,21 @@ def empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficien
 
 
 # %% [markdown]
+# **Empirical Bayes Filter by AADT and Crash Frequency Rating**
+
+# %%
+def filter_empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple, years_before_treatment=4, years_after_treatment=3):
+    curve_data = count_curve_crashes(data, curve_data)
+    curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
+    curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
+    # Filter the data based on the ratings
+    curve_data = calculate_SPF_frequencies(curve_data, coefficients)
+    cumulative_dict = calculate_cumulative_values(curve_data, coefficients)
+    results_dict = calculate_final_outputs(curve_data, cumulative_dict)
+    return None
+
+
+# %% [markdown]
 # ## Import Data
 
 # %%
@@ -296,6 +311,15 @@ coefficients = D6_total_coeff
 years_before_treatment = 4
 years_after_treatment = 3
 
-display(data)
+curve_data = count_curve_crashes(data, curve_data)
+curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
+curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
+
+print("This is the data before")
+display(curve_data, data)
+
+data = data.join(curve_data[["CurveID", "AADT Rating", "Crash Frequency Rating"]].set_index("CurveID"), on="CurveID")
+print("This is the data after")
+display(AADT_bins, crash_bins, data[["CurveID", "AADT Rating", "Average AADT", "Crash Frequency Rating"]])
 
 # %%
