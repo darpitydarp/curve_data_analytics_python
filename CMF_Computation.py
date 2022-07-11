@@ -200,15 +200,31 @@ def empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficien
 # **Empirical Bayes Filter by AADT and Crash Frequency Rating**
 
 # %%
+def filter_by_rating(data: pd.DataFrame, curve_data: pd.DataFrame, rating_filters: tuple):
+    # Helper function to filter crash and curve data by the AADT ratings and crash frequency ratings
+    
+    # Clarifying the filters by making separate variables
+    AADT_rating_filter = rating_filters[0]
+    crash_rating_filter = rating_filters[1]
+    
+    # Joining the ratings to the crash data
+    data = data.join(curve_data[["CurveID", "AADT Rating", "Crash Frequency Rating"]].set_index("CurveID"), on="CurveID")
+    
+    # Filtering the data and curve data based on the ratings
+    data = data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter")
+    curve_data = curve_data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter")
+    
+    return data, curve_data
+
 def filter_empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple, years_before_treatment=4, years_after_treatment=3):
     curve_data = count_curve_crashes(data, curve_data)
     curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
     curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
-    # Filter the data based on the ratings
+    data, curve_data = filter_by_rating(data, curve_data, rating_filters)
     curve_data = calculate_SPF_frequencies(curve_data, coefficients)
     cumulative_dict = calculate_cumulative_values(curve_data, coefficients)
     results_dict = calculate_final_outputs(curve_data, cumulative_dict)
-    return None
+    return results_dict, AADT_bins, crash_bins
 
 
 # %% [markdown]
@@ -289,37 +305,54 @@ display(empirical_bayes_CMF(D1_wet_road, D1_curve_data, D1_wet_road_coeff))
 # ## Filter by AADT and Crash Frequency Ratings
 
 # %%
-filters = [("Low AADT", "Low Crash Frequency"),
-           ("Medium AADT", "Low Crash Frequency"),
-           ("High AADT", "Low Crash Frequency"),
-           ("Low AADT", "Low Crash Frequency"),
-           ("Medium AADT", "Low Crash Frequency"),
-           ("High AADT", "Low Crash Frequency"),
+filters = [("Low AADT", "Low crash frequency"),
+           ("Medium AADT", "Low crash frequency"),
+           ("High AADT", "Low crash frequency"),
+           ("Low AADT", "High crash frequency"),
+           ("Medium AADT", "High crash frequency"),
+           ("High AADT", "High crash frequency"),
           ]
 
 # %% [markdown]
 # D6 Total
 
 # %%
-# for filter in filters:
-    # print(filter[0] + " and " + filter[1])
-    
-filter = ("Low AADT", "Low Crash Frequency")
-data = D6_data
-curve_data = D6_curve_data
-coefficients = D6_total_coeff
-years_before_treatment = 4
-years_after_treatment = 3
+# rating_filters = filters[0]
+# data = D6_data
+# curve_data = D6_curve_data
+# coefficients = D6_total_coeff
+# years_before_treatment = 4
+# years_after_treatment = 3
 
-curve_data = count_curve_crashes(data, curve_data)
-curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
-curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
+# curve_data = count_curve_crashes(data, curve_data)
+# curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
+# curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
 
-print("This is the data before")
-display(curve_data, data)
+# AADT_rating_filter = rating_filters[0]
+# crash_rating_filter = rating_filters[1]
+# data = data.join(curve_data[["CurveID", "AADT Rating", "Crash Frequency Rating"]].set_index("CurveID"), on="CurveID")
+# data = data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter")
+# curve_data = curve_data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter")
 
-data = data.join(curve_data[["CurveID", "AADT Rating", "Crash Frequency Rating"]].set_index("CurveID"), on="CurveID")
-print("This is the data after")
-display(AADT_bins, crash_bins, data[["CurveID", "AADT Rating", "Average AADT", "Crash Frequency Rating"]])
+# curve_data = calculate_SPF_frequencies(curve_data, coefficients)
+# cumulative_dict = calculate_cumulative_values(curve_data, coefficients)
+# results_dict = calculate_final_outputs(curve_data, cumulative_dict)
+# display(results_dict, AADT_bins, crash_bins)
+
+# %%
+rating_filters = filters[0]
+
+print("Low AADT", "Low crash frequency")
+display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[0]))
+print("Medium AADT", "Low crash frequency")
+display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[1]))
+print("High AADT", "Low crash frequency")
+display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[2]))
+print("Low AADT", "High crash frequency")
+display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[3]))
+print("Medium AADT", "High crash frequency")
+display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[4]))
+print("High AADT", "High crash frequency")
+display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[5]))
 
 # %%
