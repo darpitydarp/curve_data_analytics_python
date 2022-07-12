@@ -19,6 +19,7 @@
 # %%
 import pandas as pd
 import statistics
+import numpy as np
 
 
 # %% [markdown]
@@ -77,24 +78,30 @@ def calculate_frequencies(curve_data: pd.DataFrame, years_before_treatment, year
     
     # Calculate crash frequencies after treatment
     crash_frequency_after = curve_data["Crashes After"] / years_after_treatment
-    curve_data = pd.merge(curve_data, crash_frequency_after.to_frame("Crash Frequency After"), left_index=True, right_index=True)    
+    curve_data = pd.merge(curve_data, crash_frequency_after.to_frame("Crash Frequency After"), left_index=True, right_index=True)
     
     return curve_data
 
 def calculate_curve_ratings(curve_data: pd.DataFrame):
     # Helper function to calculate curve AADT and crash frequency ratings
     
+    # Exclude curves with no crashes from ratings
+    curve_data_view = curve_data.query("`Total Crashes` > 0")
+    
     # Clean through curve data
-    curve_AADTs = curve_data["Average AADT"]
-    curve_crash_counts = curve_data["Total Crashes"]
-    
+    curve_AADTs = curve_data_view["Average AADT"]
+    curve_crash_counts = curve_data_view["Total Crashes"]
+
     # Calculate the curve AADT and crash ratings, and make sure to output the bin boundaries
-    AADT_ratings, AADT_bins = pd.qcut(curve_AADTs, 2, ["Low AADT", "High AADT"], retbins=True)
-    crash_ratings, crash_bins = pd.qcut(curve_crash_counts, 2, ["Low Crash Frequency", "High Crash Frequency"], retbins=True)
-    
-    # Join the calculated ratings to the dataset
-    curve_data = pd.merge(curve_data, AADT_ratings.to_frame("AADT Rating"), left_index=True, right_index=True)
-    curve_data = pd.merge(curve_data, crash_ratings.to_frame("Crash Frequency Rating"), left_index=True, right_index=True)
+    AADT_ratings, AADT_bins = pd.qcut(curve_AADTs, 3, ["Low AADT", "Medium AADT", "High AADT"], retbins=True)
+    crash_ratings, crash_bins = pd.cut(curve_crash_counts, np.array([0, curve_data_view["Total Crashes"].mean(), curve_data_view["Total Crashes"].max()]), labels=["Low Crash Frequency", "High Crash Frequency"], retbins=True)
+    AADT_ratings, crash_ratings, AADT_bins, crash_bins
+
+    # Join the calculated ratings to CurveIDs, then join those smaller views to the dataset
+    curve_AADTs = pd.merge(curve_data_view["CurveID"].to_frame(), AADT_ratings.to_frame("AADT Rating"), left_index=True, right_index=True)
+    curve_crash_counts = pd.merge(curve_data_view["CurveID"].to_frame(), crash_ratings.to_frame("Crash Frequency Rating"), left_index=True, right_index=True)
+    curve_data = pd.merge(curve_data, curve_AADTs, on="CurveID", how="left")
+    curve_data = pd.merge(curve_data, curve_crash_counts, on="CurveID", how="left")
 
     return curve_data, AADT_bins, crash_bins
 
@@ -354,6 +361,7 @@ display(D6_single_vehicle_filters_df)
 
 index_order = ["Low Crash Frequency", "High Crash Frequency"]
 column_order = ["Low AADT", "High AADT"]
+
 display(D6_single_vehicle_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
 display(D6_single_vehicle_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
 
