@@ -22,7 +22,7 @@ import statistics
 
 
 # %% [markdown]
-# ## Compute Naive CMFs
+# ## Naive CMFs Functions
 
 # %%
 def naive_CMF(data: pd.DataFrame, years_before_treatment=4, years_after_treatment=3):
@@ -34,7 +34,7 @@ def naive_CMF(data: pd.DataFrame, years_before_treatment=4, years_after_treatmen
 
 
 # %% [markdown]
-# ## Compute Empirical Bayes CMFs
+# ## Empirical Bayes CMFs Functions
 
 # %% [markdown]
 # **Helper Functions**
@@ -110,7 +110,7 @@ def calculate_SPF_frequencies(curve_data: pd.DataFrame, coefficients: pd.DataFra
     ln_AADT = coefficients.loc["log(AADT)"][0] / years
     ln_BBI = coefficients.loc["log(BBI)"][0] / years
     speed_diff = coefficients.loc["Speed Diff"][0] / years
-    
+
     # Calculate the SPF frequency before
     SPF_before = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT Before)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff)
     curve_data = pd.merge(curve_data, SPF_before.to_frame("SPF Frequency Before"), left_index=True, right_index=True)
@@ -118,6 +118,10 @@ def calculate_SPF_frequencies(curve_data: pd.DataFrame, coefficients: pd.DataFra
     # Calculate the SPF frequency after
     SPF_after = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT After)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff)
     curve_data = pd.merge(curve_data, SPF_after.to_frame("SPF Frequency After"), left_index=True, right_index=True)
+
+    # Replace negative SPF values with 0
+    curve_data.loc[curve_data["SPF Frequency Before"] < 0, "SPF Frequency Before"] = 0
+    curve_data.loc[curve_data["SPF Frequency After"] < 0, "SPF Frequency After"] = 0
     
     return curve_data
 
@@ -317,20 +321,6 @@ rating_filters = [("Low AADT", "Low Crash Frequency"),
 # **D6 Total**
 
 # %%
-print("\n", rating_filters[0])
-display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[0]))
-print("\n", rating_filters[1])
-display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[1]))
-print("\n", rating_filters[2])
-display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[2]))
-print("\n", rating_filters[3])
-display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[3]))
-print("\n", rating_filters[4])
-display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[4]))
-print("\n", rating_filters[5])
-display(filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, rating_filters[5]))
-
-# %%
 D6_total_filters = []
 for filter in rating_filters:
     results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, filter)
@@ -342,16 +332,160 @@ for filter in rating_filters:
     D6_total_filters.append(results_dict)
 D6_total_filters_df = pd.DataFrame(D6_total_filters)
 display(D6_total_filters_df)
-display(D6_total_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating"))
-display(D6_total_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating"))
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D6_total_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D6_total_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
 
 # %% [markdown]
 # **D6 Single Vehicle**
 
+# %%
+D6_single_vehicle_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D6_single_vehicle_filters.append(results_dict)
+D6_single_vehicle_filters_df = pd.DataFrame(D6_single_vehicle_filters)
+display(D6_single_vehicle_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D6_total_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D6_total_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
 # %% [markdown]
 # **D6 Curve Crashes**
 
+# %%
+D6_curve_crashes_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D6_curve_crashes, D6_curve_data, D6_curve_crashes_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D6_curve_crashes_filters.append(results_dict)
+D6_curve_crashes_filters_df = pd.DataFrame(D6_curve_crashes_filters)
+display(D6_curve_crashes_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D6_curve_crashes_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D6_curve_crashes_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
 # %% [markdown]
 # **D6 Wet Road**
+
+# %%
+D6_wet_road_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D6_wet_road, D6_curve_data, D6_wet_road_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D6_wet_road_filters.append(results_dict)
+D6_wet_road_filters_df = pd.DataFrame(D6_wet_road_filters)
+display(D6_wet_road_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D6_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D6_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
+# %% [markdown]
+# **D1 Total**
+
+# %%
+D1_total_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D1_data, D1_curve_data, D1_total_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D1_total_filters.append(results_dict)
+D1_total_filters_df = pd.DataFrame(D1_total_filters)
+display(D1_total_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D1_total_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D1_total_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
+# %% [markdown]
+# **D1 Single Vehicle**
+
+# %%
+D1_single_vehicle_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D1_single_vehicle, D1_curve_data, D1_single_vehicle_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D1_single_vehicle_filters.append(results_dict)
+D1_single_vehicle_filters_df = pd.DataFrame(D1_single_vehicle_filters)
+display(D1_single_vehicle_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D1_single_vehicle_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D1_single_vehicle_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
+# %% [markdown]
+# **D1 Curve Crashes**
+
+# %%
+D1_curve_crashes_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D1_curve_crashes, D1_curve_data, D1_curve_crashes_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D1_curve_crashes_filters.append(results_dict)
+D1_curve_crashes_filters_df = pd.DataFrame(D1_curve_crashes_filters)
+display(D1_curve_crashes_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D1_curve_crashes_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D1_curve_crashes_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
+# %% [markdown]
+# **D1 Wet Road**
+
+# %%
+D1_wet_road_filters = []
+for filter in rating_filters:
+    results_dict, AADT_bins, crash_bins = filter_empirical_bayes_CMF(D1_wet_road, D1_curve_data, D1_wet_road_coeff, filter)
+    results_dict.update({"AADT Rating" : filter[0],
+                         "Crash Frequency Rating" : filter[1],
+                         "AADT Bins" : AADT_bins,
+                         "Crash Frequency Bins" : crash_bins}
+                        )
+    D1_wet_road_filters.append(results_dict)
+D1_wet_road_filters_df = pd.DataFrame(D1_wet_road_filters)
+display(D1_wet_road_filters_df)
+
+index_order = ["Low Crash Frequency", "High Crash Frequency"]
+column_order = ["Low AADT", "Medium AADT", "High AADT"]
+display(D1_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+display(D1_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
+
+# %% [markdown]
+# ## Debug
 
 # %%
