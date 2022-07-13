@@ -120,16 +120,12 @@ def calculate_SPF_frequencies(curve_data: pd.DataFrame, coefficients: pd.DataFra
     speed_diff = coefficients.loc["Speed Diff"][0] / years
 
     # Calculate the SPF frequency before
-    SPF_before = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT Before)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff)
+    SPF_before = np.exp(intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT Before)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff))
     curve_data = pd.merge(curve_data, SPF_before.to_frame("SPF Frequency Before"), left_index=True, right_index=True)
 
     # Calculate the SPF frequency after
-    SPF_after = intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT After)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff)
+    SPF_after = np.exp(intercept + (curve_data["Divided"] * divided) + (curve_data["log(devangle)"] * ln_deflection_angle) + (curve_data["Curve Length"] * length) + (curve_data["log(AADT After)"] * ln_AADT) + (curve_data["log(BBI)"] * ln_BBI) + (curve_data["Speed Diff"] * speed_diff))
     curve_data = pd.merge(curve_data, SPF_after.to_frame("SPF Frequency After"), left_index=True, right_index=True)
-
-    # Replace negative SPF values with 0
-    curve_data.loc[curve_data["SPF Frequency Before"] < 0, "SPF Frequency Before"] = 0
-    curve_data.loc[curve_data["SPF Frequency After"] < 0, "SPF Frequency After"] = 0
     
     return curve_data
 
@@ -388,7 +384,7 @@ display(empirical_bayes_CMF(D1_curve_crashes, D1_curve_data, D1_curve_crashes_co
 display(empirical_bayes_CMF(D1_wet_road, D1_curve_data, D1_wet_road_coeff))
 
 # %% [markdown]
-# ## Filter by AADT and Crash Frequency Ratings
+# ## D6 HFST Filtered by AADT and Crash Frequency Ratings
 
 # %%
 rating_filters = [("Low AADT", "Low Crash Frequency"),
@@ -483,6 +479,9 @@ display(D6_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash F
 display(D6_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0))
 
 # %% [markdown]
+# ## D1 Phonolite Filtered by AADT and Crash Frequency Ratings
+
+# %% [markdown]
 # **D1 Total**
 
 # %%
@@ -568,5 +567,32 @@ display(D1_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Cras
 
 # %% [markdown]
 # ## Debug
+
+# %%
+# data=D1_data
+# curve_data=D1_curve_data
+# coefficients=D1_total_coeff
+# years_before_treatment=4
+# years_after_treatment=3
+
+# curve_data = count_curve_crashes(data, curve_data)
+# curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
+# ####################################################################################################### curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
+# # Clean through curve data
+# curve_AADTs = curve_data_view["Average AADT"]
+# curve_crash_counts = curve_data_view["Crashes Before"]
+
+# # Calculate the curve AADT and crash ratings, and make sure to output the bin boundaries
+# AADT_ratings, AADT_bins = pd.qcut(curve_AADTs, 2, ["Low AADT", "High AADT"], retbins=True)
+# crash_ratings, crash_bins = pd.cut(curve_crash_counts, np.array([0, curve_data_view["Crashes Before"].mean(), curve_data_view["Crashes Before"].max()]), labels=["Low Crash Frequency", "High Crash Frequency"], retbins=True)
+
+# # Join the calculated ratings to CurveIDs, then join those smaller views to the dataset
+# curve_AADTs = pd.merge(curve_data_view["CurveID"].to_frame(), AADT_ratings.to_frame("AADT Rating"), left_index=True, right_index=True)
+# curve_crash_counts = pd.merge(curve_data_view["CurveID"].to_frame(), crash_ratings.to_frame("Crash Frequency Rating"), left_index=True, right_index=True)
+# curve_data = pd.merge(curve_data, curve_AADTs, on="CurveID", how="left")
+# curve_data = pd.merge(curve_data, curve_crash_counts, on="CurveID", how="left")
+
+# %%
+# display(curve_data)
 
 # %%
