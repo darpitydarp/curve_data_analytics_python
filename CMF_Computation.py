@@ -20,6 +20,8 @@
 import pandas as pd
 import statistics
 import numpy as np
+import warnings
+warnings.filterwarnings("error")
 
 
 # %% [markdown]
@@ -86,16 +88,15 @@ def calculate_curve_ratings(curve_data: pd.DataFrame):
     # Helper function to calculate curve AADT and crash frequency ratings
     
     # Exclude curves with no crashes from ratings
-    curve_data_view = curve_data.query("`Total Crashes` > 0")
+    curve_data_view = curve_data.query("`Crashes Before` > 0")
     
     # Clean through curve data
     curve_AADTs = curve_data_view["Average AADT"]
-    curve_crash_counts = curve_data_view["Total Crashes"]
+    curve_crash_counts = curve_data_view["Crashes Before"]
 
     # Calculate the curve AADT and crash ratings, and make sure to output the bin boundaries
-    AADT_ratings, AADT_bins = pd.qcut(curve_AADTs, 3, ["Low AADT", "Medium AADT", "High AADT"], retbins=True)
-    crash_ratings, crash_bins = pd.cut(curve_crash_counts, np.array([0, curve_data_view["Total Crashes"].mean(), curve_data_view["Total Crashes"].max()]), labels=["Low Crash Frequency", "High Crash Frequency"], retbins=True)
-    AADT_ratings, crash_ratings, AADT_bins, crash_bins
+    AADT_ratings, AADT_bins = pd.qcut(curve_AADTs, 2, ["Low AADT", "High AADT"], retbins=True)
+    crash_ratings, crash_bins = pd.cut(curve_crash_counts, np.array([0, curve_data_view["Crashes Before"].mean(), curve_data_view["Crashes Before"].max()]), labels=["Low Crash Frequency", "High Crash Frequency"], retbins=True)
 
     # Join the calculated ratings to CurveIDs, then join those smaller views to the dataset
     curve_AADTs = pd.merge(curve_data_view["CurveID"].to_frame(), AADT_ratings.to_frame("AADT Rating"), left_index=True, right_index=True)
@@ -168,10 +169,10 @@ def calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict):
     
     # Calculate variance of expected after
     variance_of_expected_after = cumulative_dict["Expected Crashes After"] * cumulative_dict["Comparison Ratio"] * (1 - cumulative_dict["Weight of SPF"])
-    
+
     # Calculate CMF
     empirical_bayes_cmf = (cumulative_dict["Total Frequency After"] / cumulative_dict["Expected Crashes After"]) / (1 + (variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2)))
-    
+
     # Calculate variance of total frequency after
     variance_of_total_frequency_after = statistics.variance(curve_data["Crash Frequency After"])
 
@@ -183,13 +184,14 @@ def calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict):
                                 ((1 + variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2) ** 2))
                             )
                          ) ** 0.5
-    
+
     # Collect all calculated values into a dictionary
     results_dict = {"Variance of Expected After" : variance_of_expected_after,
                     "Empirical Bayes CMF" : empirical_bayes_cmf,
                     "Variance of Total Frequency After" : variance_of_total_frequency_after,
                     "CMF Standard Deviation" : standard_deviation
                    }
+
     return results_dict
 
 
@@ -227,14 +229,87 @@ def filter_by_rating(data: pd.DataFrame, curve_data: pd.DataFrame, rating_filter
     
     return data, curve_data
 
+def filter_calculate_cumulative_values(curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple):
+    # Helper function to find aggregate values
+    
+    # Calculation of cumulative frequencies
+    total_frequency_before = curve_data["Crash Frequency Before"].sum()
+    total_frequency_after = curve_data["Crash Frequency After"].sum()
+    total_spf_frequency_before = curve_data["SPF Frequency Before"].sum()
+    total_spf_frequency_after = curve_data["SPF Frequency After"].sum()
+    
+    # Calculation of weight of SPF
+    dispersion = coefficients.loc["Dispersion"][0]
+    weight_of_spf = 1 / (1 + dispersion * total_spf_frequency_before)
+
+    # Calculation of expected crashes before and after
+    expected_crashes_before = (weight_of_spf * total_spf_frequency_before) + (1 - weight_of_spf) * (total_frequency_before)
+    try:
+        comparison_ratio = total_spf_frequency_after / total_spf_frequency_before
+    except RuntimeWarning:
+        comparison_ratio = np.nan
+        print("The filters of " + rating_filters[0] + " and " + rating_filters[1] + " either has no curves associated with it, and the value of the comparison ratio is NaN.")
+    expected_crashes_after = expected_crashes_before * comparison_ratio
+    
+    # Collect all calculated values into a dictionary
+    cumulative_dict = {"Total Frequency Before" : total_frequency_before,
+                       "Total Frequency After" : total_frequency_after,
+                       "Total SPF Frequency Before" : total_spf_frequency_before,
+                       "Total SPF Frequency After" : total_spf_frequency_after,
+                       "Weight of SPF" : weight_of_spf,
+                       "Expected Crashes Before" : expected_crashes_before,
+                       "Comparison Ratio" : comparison_ratio,
+                       "Expected Crashes After" : expected_crashes_after,
+                      }
+    
+    return cumulative_dict
+
+def filter_calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict, rating_filters: tuple):
+    # Helper function to calculate variance, CMF, and standard error
+    
+    # Calculate variance of expected after
+    variance_of_expected_after = cumulative_dict["Expected Crashes After"] * cumulative_dict["Comparison Ratio"] * (1 - cumulative_dict["Weight of SPF"])
+
+    # Calculate CMF
+    empirical_bayes_cmf = (cumulative_dict["Total Frequency After"] / cumulative_dict["Expected Crashes After"]) / (1 + (variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2)))
+
+    # Calculate variance of total frequency after
+    try:
+        variance_of_total_frequency_after = statistics.variance(curve_data["Crash Frequency After"])
+    except Exception:
+        variance_of_total_frequency_after = np.nan
+        print("The filters of " + rating_filters[0] + " and " + rating_filters[1] + " either has one or no curves associated with it, and the values in the results dictionary will all be NaN.")
+
+    # Calculate standard deviation of CMF
+    try:
+        standard_deviation = ((empirical_bayes_cmf ** 2) *
+                                (
+                                    ((variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2)) + (variance_of_total_frequency_after / (cumulative_dict["Total Frequency After"] ** 2)))
+                                    /
+                                    ((1 + variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2) ** 2))
+                                )
+                             ) ** 0.5
+    except RuntimeWarning:
+        standard_deviation = np.nan
+        print("The filters of " + rating_filters[0] + " and " + rating_filters[1] + " has no crashes after treatment, and so the EB CMF defaults to 0 and the Stdev cannot be calculated.")
+
+    # Collect all calculated values into a dictionary
+    results_dict = {"Variance of Expected After" : variance_of_expected_after,
+                    "Empirical Bayes CMF" : empirical_bayes_cmf,
+                    "Variance of Total Frequency After" : variance_of_total_frequency_after,
+                    "CMF Standard Deviation" : standard_deviation
+                   }
+
+    return results_dict
+
 def filter_empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple, years_before_treatment=4, years_after_treatment=3):
     curve_data = count_curve_crashes(data, curve_data)
     curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
     curve_data, AADT_bins, crash_bins = calculate_curve_ratings(curve_data)
     data, curve_data = filter_by_rating(data, curve_data, rating_filters)
     curve_data = calculate_SPF_frequencies(curve_data, coefficients)
-    cumulative_dict = calculate_cumulative_values(curve_data, coefficients)
-    results_dict = calculate_final_outputs(curve_data, cumulative_dict)
+    cumulative_dict = filter_calculate_cumulative_values(curve_data, coefficients, rating_filters)
+    results_dict = filter_calculate_final_outputs(curve_data, cumulative_dict, rating_filters)
     return results_dict, AADT_bins, crash_bins
 
 
