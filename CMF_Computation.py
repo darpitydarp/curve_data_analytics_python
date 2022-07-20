@@ -54,10 +54,10 @@ def calculate_curve_ratings(data: pd.DataFrame, curve_data: pd.DataFrame):
     crash_ratings = pd.cut(crash_before_counts["Crashes Before"], np.array([0, 3, crash_before_counts["Crashes Before"].max()]), labels=["Low Crash Frequency", "High Crash Frequency"], include_lowest=True).to_frame("Crash Frequency Rating")
 
     # Finding average AADTs
-    curve_AADTs = curve_data[["CurveID","Average AADT"]].set_index("CurveID")
+    curve_AADTs = curve_data[["CurveID","Average AADT Before"]].set_index("CurveID")
 
     # Making the AADT ratings
-    AADT_ratings = pd.cut(curve_AADTs["Average AADT"], np.array([0, 2000, curve_data["Average AADT"].max()]), labels=["Low AADT", "High AADT"], include_lowest=True).to_frame("AADT Rating")
+    AADT_ratings = pd.cut(curve_AADTs["Average AADT Before"], np.array([0, 2000, curve_data["Average AADT Before"].max()]), labels=["Low AADT", "High AADT"], include_lowest=True).to_frame("AADT Rating")
 
     # Join the calculated ratings to CurveIDs, then join those smaller views to the dataset
     curve_data = pd.merge(curve_data, crash_ratings, on="CurveID", how="left")
