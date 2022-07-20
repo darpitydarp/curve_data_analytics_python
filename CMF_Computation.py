@@ -458,169 +458,181 @@ display(D6_total_filters_STD_table.style.set_caption("D6 HFST Total Crashes CMF 
                                                                                                                        'props': [('color', 'cyan'), ('font-size', '20px')]
                                                                                                                       }]))
 
-# %%
-D6_single_vehicle_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D6_single_vehicle_filters.append(results_dict)
-D6_single_vehicle_filters_df = pd.DataFrame(D6_single_vehicle_filters)
-
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
-
-D6_single_vehicle_filters_CMF_table = D6_single_vehicle_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D6_single_vehicle_filters_STD_table = D6_single_vehicle_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-
-display(D6_single_vehicle_filters_CMF_table.style.set_caption("D6 HFST Single Vehicle Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D6_single_vehicle_filters_STD_table.style.set_caption("D6 HFST Single Vehicle Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                                                'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                                               }]))
+# %% [markdown]
+# ## D6 Split by intersection-related or not intersection-related crashes
 
 # %%
-D6_curve_crashes_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D6_curve_crashes, D6_curve_data, D6_curve_crashes_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D6_curve_crashes_filters.append(results_dict)
-D6_curve_crashes_filters_df = pd.DataFrame(D6_curve_crashes_filters)
+D6_total_EB_intersection = empirical_bayes_CMF(D6_data.query("`Intersection related` == 1"), D6_curve_data, D6_total_coeff)
+D6_total_EB_not_intersection = empirical_bayes_CMF(D6_data.query("`Intersection related` == 0"), D6_curve_data, D6_total_coeff)
 
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
+display(D6_total_EB_intersection, D6_total_EB_not_intersection)
 
-D6_curve_crashes_filters_CMF_table = D6_curve_crashes_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D6_curve_crashes_filters_STD_table = D6_curve_crashes_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-
-display(D6_curve_crashes_filters_CMF_table.style.set_caption("D6 HFST Curve Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D6_curve_crashes_filters_STD_table.style.set_caption("D6 HFST Curve Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
+# %% [markdown]
+# ### Results further below aren't used
 
 # %%
-D6_wet_road_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D6_wet_road, D6_curve_data, D6_wet_road_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D6_wet_road_filters.append(results_dict)
-D6_wet_road_filters_df = pd.DataFrame(D6_wet_road_filters)
+# D6_single_vehicle_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D6_single_vehicle_filters.append(results_dict)
+# D6_single_vehicle_filters_df = pd.DataFrame(D6_single_vehicle_filters)
 
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
 
-D6_wet_road_filters_CMF_table = D6_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D6_wet_road_filters_STD_table = D6_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D6_single_vehicle_filters_CMF_table = D6_single_vehicle_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D6_single_vehicle_filters_STD_table = D6_single_vehicle_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
 
-display(D6_wet_road_filters_CMF_table.style.set_caption("D6 HFST Wet Road Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D6_wet_road_filters_STD_table.style.set_caption("D6 HFST Wet Road Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
+# display(D6_single_vehicle_filters_CMF_table.style.set_caption("D6 HFST Single Vehicle Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D6_single_vehicle_filters_STD_table.style.set_caption("D6 HFST Single Vehicle Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                                                 'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                                                }]))
+
+# %%
+# D6_curve_crashes_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D6_curve_crashes, D6_curve_data, D6_curve_crashes_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D6_curve_crashes_filters.append(results_dict)
+# D6_curve_crashes_filters_df = pd.DataFrame(D6_curve_crashes_filters)
+
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
+
+# D6_curve_crashes_filters_CMF_table = D6_curve_crashes_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D6_curve_crashes_filters_STD_table = D6_curve_crashes_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+
+# display(D6_curve_crashes_filters_CMF_table.style.set_caption("D6 HFST Curve Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D6_curve_crashes_filters_STD_table.style.set_caption("D6 HFST Curve Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+
+# %%
+# D6_wet_road_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D6_wet_road, D6_curve_data, D6_wet_road_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D6_wet_road_filters.append(results_dict)
+# D6_wet_road_filters_df = pd.DataFrame(D6_wet_road_filters)
+
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
+
+# D6_wet_road_filters_CMF_table = D6_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D6_wet_road_filters_STD_table = D6_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+
+# display(D6_wet_road_filters_CMF_table.style.set_caption("D6 HFST Wet Road Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D6_wet_road_filters_STD_table.style.set_caption("D6 HFST Wet Road Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
 
 # %% [markdown]
 # ## D1 Phonolite Filtered by AADT and Crash Frequency Ratings
 
 # %%
-D1_total_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D1_data, D1_curve_data, D1_total_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D1_total_filters.append(results_dict)
-D1_total_filters_df = pd.DataFrame(D1_total_filters)
+# D1_total_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D1_data, D1_curve_data, D1_total_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D1_total_filters.append(results_dict)
+# D1_total_filters_df = pd.DataFrame(D1_total_filters)
 
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
 
-D1_total_filters_CMF_table = D1_total_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D1_total_filters_STD_table = D1_total_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_total_filters_CMF_table = D1_total_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_total_filters_STD_table = D1_total_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
 
-display(D1_total_filters_CMF_table.style.set_caption("D1 Phonolite Total Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D1_total_filters_STD_table.style.set_caption("D1 Phonolite Total Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-
-# %%
-D1_single_vehicle_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D1_single_vehicle, D1_curve_data, D1_single_vehicle_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D1_single_vehicle_filters.append(results_dict)
-D1_single_vehicle_filters_df = pd.DataFrame(D1_single_vehicle_filters)
-
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
-
-D1_single_vehicle_filters_CMF_table = D1_single_vehicle_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D1_single_vehicle_filters_STD_table = D1_single_vehicle_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-
-display(D1_single_vehicle_filters_CMF_table.style.set_caption("D1 Phonolite Single Vehicle Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D1_single_vehicle_filters_STD_table.style.set_caption("D1 Phonolite Single Vehicle Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
+# display(D1_total_filters_CMF_table.style.set_caption("D1 Phonolite Total Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D1_total_filters_STD_table.style.set_caption("D1 Phonolite Total Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
 
 # %%
-D1_curve_crashes_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D1_curve_crashes, D1_curve_data, D1_curve_crashes_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D1_curve_crashes_filters.append(results_dict)
-D1_curve_crashes_filters_df = pd.DataFrame(D1_curve_crashes_filters)
+# D1_single_vehicle_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D1_single_vehicle, D1_curve_data, D1_single_vehicle_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D1_single_vehicle_filters.append(results_dict)
+# D1_single_vehicle_filters_df = pd.DataFrame(D1_single_vehicle_filters)
 
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
 
-D1_curve_crashes_filters_CMF_table = D1_curve_crashes_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D1_curve_crashes_filters_STD_table = D1_curve_crashes_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_single_vehicle_filters_CMF_table = D1_single_vehicle_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_single_vehicle_filters_STD_table = D1_single_vehicle_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
 
-display(D1_curve_crashes_filters_CMF_table.style.set_caption("D1 Phonolite Curve Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D1_curve_crashes_filters_STD_table.style.set_caption("D1 Phonolite Curve Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
+# display(D1_single_vehicle_filters_CMF_table.style.set_caption("D1 Phonolite Single Vehicle Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D1_single_vehicle_filters_STD_table.style.set_caption("D1 Phonolite Single Vehicle Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
 
 # %%
-D1_wet_road_filters = []
-for filter in rating_filters:
-    results_dict = filter_empirical_bayes_CMF(D1_wet_road, D1_curve_data, D1_wet_road_coeff, filter)
-    results_dict.update({"AADT Rating" : filter[0],
-                         "Crash Frequency Rating" : filter[1]}
-                        )
-    D1_wet_road_filters.append(results_dict)
-D1_wet_road_filters_df = pd.DataFrame(D1_wet_road_filters)
+# D1_curve_crashes_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D1_curve_crashes, D1_curve_data, D1_curve_crashes_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D1_curve_crashes_filters.append(results_dict)
+# D1_curve_crashes_filters_df = pd.DataFrame(D1_curve_crashes_filters)
 
-index_order = ["Low Crash Frequency", "High Crash Frequency"]
-column_order = ["Low AADT", "High AADT"]
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
 
-D1_wet_road_filters_CMF_table = D1_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
-D1_wet_road_filters_STD_table = D1_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_curve_crashes_filters_CMF_table = D1_curve_crashes_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_curve_crashes_filters_STD_table = D1_curve_crashes_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
 
-display(D1_wet_road_filters_CMF_table.style.set_caption("D1 Phonolite Wet Road Crashes CMFs").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
-display(D1_wet_road_filters_STD_table.style.set_caption("D1 Phonolite Wet Road Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
-                                                                                                             'props': [('color', 'cyan'), ('font-size', '20px')]
-                                                                                                            }]))
+# display(D1_curve_crashes_filters_CMF_table.style.set_caption("D1 Phonolite Curve Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D1_curve_crashes_filters_STD_table.style.set_caption("D1 Phonolite Curve Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+
+# %%
+# D1_wet_road_filters = []
+# for filter in rating_filters:
+#     results_dict = filter_empirical_bayes_CMF(D1_wet_road, D1_curve_data, D1_wet_road_coeff, filter)
+#     results_dict.update({"AADT Rating" : filter[0],
+#                          "Crash Frequency Rating" : filter[1]}
+#                         )
+#     D1_wet_road_filters.append(results_dict)
+# D1_wet_road_filters_df = pd.DataFrame(D1_wet_road_filters)
+
+# index_order = ["Low Crash Frequency", "High Crash Frequency"]
+# column_order = ["Low AADT", "High AADT"]
+
+# D1_wet_road_filters_CMF_table = D1_wet_road_filters_df.pivot_table("Empirical Bayes CMF", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+# D1_wet_road_filters_STD_table = D1_wet_road_filters_df.pivot_table("CMF Standard Deviation", index="Crash Frequency Rating", columns="AADT Rating").reindex(column_order, axis=1).reindex(index_order, axis=0)
+
+# display(D1_wet_road_filters_CMF_table.style.set_caption("D1 Phonolite Wet Road Crashes CMFs").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
+# display(D1_wet_road_filters_STD_table.style.set_caption("D1 Phonolite Wet Road Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
+#                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
+#                                                                                                             }]))
 
 # %% [markdown]
 # ## Debug
