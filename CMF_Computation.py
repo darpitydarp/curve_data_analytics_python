@@ -429,6 +429,10 @@ EB_df
 # ## D6 HFST Filtered by AADT and Crash Frequency Ratings
 
 # %%
+# Test to see if 3 crashes/year is a proper cutoff for prior crash frequency rating
+D6_data.groupby("CurveID")["CurveID"].count().describe()
+
+# %%
 rating_filters = [("Low AADT", "Low Crash Frequency"),
            ("High AADT", "Low Crash Frequency"),
            ("Low AADT", "High Crash Frequency"),
