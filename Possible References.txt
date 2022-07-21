@@ -4,3 +4,5 @@ GDOT report, don't know how to cite
 FHWA horizontal curve safety https://safety.fhwa.dot.gov/roadway_dept/countermeasures/horicurves/
 another Merritt https://www.fhwa.dot.gov/publications/research/safety/20061/index.cfm
 stats from http://cdan.dot.gov/???
+
+Merritt paper cites this for negative binomial error structure over normal distribution https://www.sciencedirect.com/science/article/abs/pii/S0965856410000376
