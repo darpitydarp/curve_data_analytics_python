@@ -58,11 +58,25 @@ def calculate_curve_ratings(data: pd.DataFrame, curve_data: pd.DataFrame):
 
     # Making the AADT ratings
     AADT_ratings = pd.cut(curve_AADTs["Average AADT Before"], np.array([0, 2000, curve_data["Average AADT Before"].max()]), labels=["Low AADT", "High AADT"], include_lowest=True).to_frame("AADT Rating")
-
+    
     # Join the calculated ratings to CurveIDs, then join those smaller views to the dataset
     curve_data = pd.merge(curve_data, crash_ratings, on="CurveID", how="left")
     curve_data.loc[:, "Crash Frequency Rating"] = curve_data.loc[:, "Crash Frequency Rating"].fillna("Low Crash Frequency")
     curve_data = pd.merge(curve_data, AADT_ratings, on="CurveID", how="left")
+    
+    try:
+        # Finding the instersection crashes before treatment
+        intersection_crash_before_data = crash_before_data.loc[data["Intersection related"] == 1]
+        intersection_crash_before_counts = intersection_crash_before_data.groupby("CurveID")["CurveID"].count().to_frame("Intersection Crashes Before")
+
+        # Making the intersection crash ratings
+        intersection_crash_ratings = pd.cut(intersection_crash_before_counts["Intersection Crashes Before"], np.array([0, 0.5, intersection_crash_before_counts["Intersection Crashes Before"].max()]), labels=["Low Intersection Crash Frequency", "High Intersection Crash Frequency"], include_lowest=True).to_frame("Intersection Crash Frequency Rating")
+
+        # Adding to curve data
+        curve_data = pd.merge(curve_data, intersection_crash_ratings, on="CurveID", how="left")
+        curve_data.loc[:, "Intersection Crash Frequency Rating"] = curve_data.loc[:, "Intersection Crash Frequency Rating"].fillna("Low Intersection Crash Frequency")
+    except:
+        pass
 
     return data, curve_data
 
@@ -214,7 +228,7 @@ def empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficien
 # **Empirical Bayes Filter by AADT and Crash Frequency Rating**
 
 # %%
-def filter_by_rating(data: pd.DataFrame, curve_data: pd.DataFrame, rating_filters: tuple):
+def filter_by_rating(data: pd.DataFrame, curve_data: pd.DataFrame, rating_filters):
     # Helper function to filter crash and curve data by the AADT ratings and crash frequency ratings
     
     # Clarifying the filters by making separate variables
@@ -230,7 +244,7 @@ def filter_by_rating(data: pd.DataFrame, curve_data: pd.DataFrame, rating_filter
     
     return data, curve_data
 
-def filter_calculate_cumulative_values(curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple):
+def filter_calculate_cumulative_values(curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters):
     # Helper function to find aggregate values
     
     # Calculation of cumulative frequencies
@@ -265,7 +279,7 @@ def filter_calculate_cumulative_values(curve_data: pd.DataFrame, coefficients: p
     
     return cumulative_dict
 
-def filter_calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict, rating_filters: tuple):
+def filter_calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict, rating_filters):
     # Helper function to calculate variance, CMF, and standard error
     
     # Calculate variance of expected after
@@ -303,7 +317,107 @@ def filter_calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: di
 
     return results_dict
 
-def filter_empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple, years_before_treatment=4, years_after_treatment=3):
+def filter_empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters, years_before_treatment=4, years_after_treatment=3):
+    curve_data = count_curve_crashes(data, curve_data)
+    curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
+    data, curve_data = filter_by_rating(data, curve_data, rating_filters)
+    curve_data = calculate_SPF_frequencies(curve_data, coefficients)
+    cumulative_dict = filter_calculate_cumulative_values(curve_data, coefficients, rating_filters)
+    results_dict = filter_calculate_final_outputs(curve_data, cumulative_dict, rating_filters)
+    return results_dict
+
+
+# %%
+def int_filter_by_rating(data: pd.DataFrame, curve_data: pd.DataFrame, rating_filters: tuple):
+    # Helper function to filter crash and curve data by the AADT ratings and crash frequency ratings
+    
+    # Clarifying the filters by making separate variables
+    AADT_rating_filter = rating_filters[0]
+    crash_rating_filter = rating_filters[1]
+    
+    # Joining the ratings to the crash data
+    data = data.join(curve_data[["CurveID", "AADT Rating", "Crash Frequency Rating"]].set_index("CurveID"), on="CurveID")
+    
+    # Filtering the data and curve data based on the ratings
+    data = data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter")
+    curve_data = curve_data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter")
+    
+    return data, curve_data
+
+def int_filter_calculate_cumulative_values(curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple):
+    # Helper function to find aggregate values
+    
+    # Calculation of cumulative frequencies
+    total_frequency_before = curve_data["Crash Frequency Before"].sum()
+    total_frequency_after = curve_data["Crash Frequency After"].sum()
+    total_spf_frequency_before = curve_data["SPF Frequency Before"].sum()
+    total_spf_frequency_after = curve_data["SPF Frequency After"].sum()
+    
+    # Calculation of weight of SPF
+    dispersion = coefficients.loc["Dispersion"][0]
+    weight_of_spf = 1 / (1 + dispersion * total_spf_frequency_before)
+
+    # Calculation of expected crashes before and after
+    expected_crashes_before = (weight_of_spf * total_spf_frequency_before) + (1 - weight_of_spf) * (total_frequency_before)
+    try:
+        comparison_ratio = total_spf_frequency_after / total_spf_frequency_before
+    except RuntimeWarning:
+        comparison_ratio = np.nan
+        print("The filters of " + rating_filters[0] + " and " + rating_filters[1] + " either has no curves associated with it, and the value of the comparison ratio is NaN.")
+    expected_crashes_after = expected_crashes_before * comparison_ratio
+    
+    # Collect all calculated values into a dictionary
+    cumulative_dict = {"Total Frequency Before" : total_frequency_before,
+                       "Total Frequency After" : total_frequency_after,
+                       "Total SPF Frequency Before" : total_spf_frequency_before,
+                       "Total SPF Frequency After" : total_spf_frequency_after,
+                       "Weight of SPF" : weight_of_spf,
+                       "Expected Crashes Before" : expected_crashes_before,
+                       "Comparison Ratio" : comparison_ratio,
+                       "Expected Crashes After" : expected_crashes_after,
+                      }
+    
+    return cumulative_dict
+
+def int_filter_calculate_final_outputs(curve_data: pd.DataFrame, cumulative_dict: dict, rating_filters: tuple):
+    # Helper function to calculate variance, CMF, and standard error
+    
+    # Calculate variance of expected after
+    variance_of_expected_after = cumulative_dict["Expected Crashes After"] * cumulative_dict["Comparison Ratio"] * (1 - cumulative_dict["Weight of SPF"])
+
+    # Calculate CMF
+    empirical_bayes_cmf = (cumulative_dict["Total Frequency After"] / cumulative_dict["Expected Crashes After"]) / (1 + (variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2)))
+
+    # Calculate variance of total frequency after
+    try:
+        variance_of_total_frequency_after = statistics.variance(curve_data["Crash Frequency After"])
+    except Exception:
+        variance_of_total_frequency_after = np.nan
+        print("The filters of " + rating_filters[0] + " and " + rating_filters[1] + " either has one or no curves associated with it, and the values in the results dictionary will all be NaN.")
+
+    # Calculate standard deviation of CMF
+    try:
+        standard_deviation = ((empirical_bayes_cmf ** 2) *
+                                (
+                                    ((variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2)) + (variance_of_total_frequency_after / (cumulative_dict["Total Frequency After"] ** 2)))
+                                    /
+                                    ((1 + variance_of_expected_after / (cumulative_dict["Expected Crashes After"] ** 2) ** 2))
+                                )
+                             ) ** 0.5
+    except RuntimeWarning:
+        standard_deviation = np.nan
+        print("The filters of " + rating_filters[0] + " and " + rating_filters[1] + " has no crashes after treatment, and so the EB CMF defaults to 0 and the Stdev cannot be calculated.")
+
+    # Collect all calculated values into a dictionary
+    results_dict = {"Variance of Expected After" : variance_of_expected_after,
+                    "Empirical Bayes CMF" : empirical_bayes_cmf,
+                    "Variance of Total Frequency After" : variance_of_total_frequency_after,
+                    "CMF Standard Deviation" : standard_deviation
+                   }
+
+    return results_dict
+
+def int_filter_empirical_bayes_CMF(data: pd.DataFrame, curve_data: pd.DataFrame, coefficients: pd.DataFrame, rating_filters: tuple, years_before_treatment=4, years_after_treatment=3):
     curve_data = count_curve_crashes(data, curve_data)
     curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
     data, curve_data = filter_by_rating(data, curve_data, rating_filters)
@@ -433,7 +547,7 @@ EB_df
 D6_data.groupby("CurveID")["CurveID"].count().describe()
 
 # %%
-rating_filters = [("Low AADT", "Low Crash Frequency"),
+filters = [("Low AADT", "Low Crash Frequency"),
            ("High AADT", "Low Crash Frequency"),
            ("Low AADT", "High Crash Frequency"),
            ("High AADT", "High Crash Frequency"),
@@ -441,7 +555,7 @@ rating_filters = [("Low AADT", "Low Crash Frequency"),
 
 # %%
 D6_total_filters = []
-for filter in rating_filters:
+for filter in filters:
     results_dict = filter_empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff, filter)
     results_dict.update({"AADT Rating" : filter[0],
                          "Crash Frequency Rating" : filter[1]}
@@ -463,13 +577,54 @@ display(D6_total_filters_STD_table.style.set_caption("D6 HFST Total Crashes CMF 
                                                                                                                       }]))
 
 # %% [markdown]
-# ## D6 Split by intersection-related or not intersection-related crashes
+# ## D6 Split by AADT, crash frequency, and intersection crash frequency
 
 # %%
-D6_total_EB_intersection = empirical_bayes_CMF(D6_data.query("`Intersection related` == 1"), D6_curve_data, D6_total_coeff)
-D6_total_EB_not_intersection = empirical_bayes_CMF(D6_data.query("`Intersection related` == 0"), D6_curve_data, D6_total_coeff)
+D6_curve_data.groupby("Intersection Crash Frequency Rating")["Intersection Crash Frequency Rating"].count()
 
-display(D6_total_EB_intersection, D6_total_EB_not_intersection)
+# %%
+filters = [("Low AADT", "Low Crash Frequency", "Low Intersection Crash Frequency"),
+          ("High AADT", "Low Crash Frequency", "Low Intersection Crash Frequency"),
+          ("Low AADT", "High Crash Frequency", "Low Intersection Crash Frequency"),
+          ("High AADT", "High Crash Frequency", "Low Intersection Crash Frequency"),
+          ("Low AADT", "Low Crash Frequency", "High Intersection Crash Frequency"),
+          ("High AADT", "Low Crash Frequency", "High Intersection Crash Frequency"),
+          ("Low AADT", "High Crash Frequency", "High Intersection Crash Frequency"),
+          ("High AADT", "High Crash Frequency", "High Intersection Crash Frequency"),
+         ]
+
+# %% [markdown]
+# ## Debug
+
+# %%
+data = D6_data
+curve_data = D6_curve_data
+coefficients = D6_total_coeff
+years_before_treatment = 4
+years_after_treatment = 3
+rating_filters = filters[3]
+
+curve_data = count_curve_crashes(data, curve_data)
+curve_data = calculate_frequencies(curve_data, years_before_treatment, years_after_treatment)
+curve_data
+######################################################## data, curve_data = filter_by_rating(data, curve_data, rating_filters)
+ # Helper function to filter crash and curve data by the AADT ratings and crash frequency ratings
+
+# Clarifying the filters by making separate variables
+AADT_rating_filter = rating_filters[0]
+crash_rating_filter = rating_filters[1]
+intersection_crash_rating_filter = rating_filters[2]
+
+# Joining the ratings to the crash data
+data = data.join(curve_data[["CurveID", "AADT Rating", "Crash Frequency Rating", "Intersection Crash Frequency Rating"]].set_index("CurveID"), on="CurveID")
+
+# Filtering the data and curve data based on the ratings
+data = data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter & `Intersection Crash Frequency Rating` == @intersection_crash_rating_filter")
+curve_data = curve_data.query("`AADT Rating` == @AADT_rating_filter & `Crash Frequency Rating` == @crash_rating_filter & `Intersection Crash Frequency Rating` == @intersection_crash_rating_filter")
+
+# curve_data = calculate_SPF_frequencies(curve_data, coefficients)
+# cumulative_dict = filter_calculate_cumulative_values(curve_data, coefficients, rating_filters)
+# results_dict = filter_calculate_final_outputs(curve_data, cumulative_dict, rating_filters)
 
 # %% [markdown]
 # ### Results further below aren't used
@@ -637,13 +792,3 @@ display(D6_total_EB_intersection, D6_total_EB_not_intersection)
 # display(D1_wet_road_filters_STD_table.style.set_caption("D1 Phonolite Wet Road Crashes CMF Standard Deviations").set_table_styles([{'selector': 'caption',
 #                                                                                                              'props': [('color', 'cyan'), ('font-size', '20px')]
 #                                                                                                             }]))
-
-# %% [markdown]
-# ## Debug
-
-# %%
-# data=D1_data
-# curve_data=D1_curve_data
-# coefficients=D1_total_coeff
-# years_before_treatment=4
-# years_after_treatment=3
