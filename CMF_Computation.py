@@ -457,6 +457,7 @@ D2_wet_road = D2_data[D2_data["Surface_Co"] == "Wet"]
 D6_single_vehicle = D6_data[D6_data["Single Vehicle"] == "Yes"]
 D6_curve_crashes = D6_data[D6_data["Vehicle_Ma"].str.contains("Negotiating a Curve")]
 D6_wet_road = D6_data[D6_data["Surface_Co"] == "Wet"]
+D6_int = D6_data[D6_data["Intersection related"] == 1]
 
 # %%
 # Import SPF coefficients
@@ -523,6 +524,7 @@ D6_total_EB = empirical_bayes_CMF(D6_data, D6_curve_data, D6_total_coeff)
 D6_single_vehicle_EB = empirical_bayes_CMF(D6_single_vehicle, D6_curve_data, D6_single_vehicle_coeff)
 D6_curve_crashes_EB = empirical_bayes_CMF(D6_curve_crashes, D6_curve_data, D6_curve_crashes_coeff)
 D6_wet_road_EB = empirical_bayes_CMF(D6_wet_road, D6_curve_data, D6_wet_road_coeff)
+D6_int_EB = empirical_bayes_CMF(D6_int, D6_curve_data, D6_total_coeff)
 
 # %%
 EB_data = [(D1_total_EB["Empirical Bayes CMF"], D1_total_EB["CMF Standard Deviation"]),
@@ -532,11 +534,13 @@ EB_data = [(D1_total_EB["Empirical Bayes CMF"], D1_total_EB["CMF Standard Deviat
            (D6_total_EB["Empirical Bayes CMF"], D6_total_EB["CMF Standard Deviation"]),
            (D6_single_vehicle_EB["Empirical Bayes CMF"], D6_single_vehicle_EB["CMF Standard Deviation"]),
            (D6_curve_crashes_EB["Empirical Bayes CMF"], D6_curve_crashes_EB["CMF Standard Deviation"]),
-           (D6_wet_road_EB["Empirical Bayes CMF"], D6_wet_road_EB["CMF Standard Deviation"])]
+           (D6_wet_road_EB["Empirical Bayes CMF"], D6_wet_road_EB["CMF Standard Deviation"]),
+           (D6_int_EB["Empirical Bayes CMF"], D6_int_EB["CMF Standard Deviation"])
+          ]
 district_list_EB = ["District 1 Phonolite", "District 1 Phonolite", "District 1 Phonolite", "District 1 Phonolite",
-                    "District 6 HFST", "District 6 HFST", "District 6 HFST", "District 6 HFST"]
+                    "District 6 HFST", "District 6 HFST", "District 6 HFST", "District 6 HFST", "District 6 HFST"]
 filter_list_EB = ["All Crashes", "Single Vehicle Crashes", "Curve Crashes", "Wet Road Crashes",
-                  "All Crashes", "Single Vehicle Crashes", "Curve Crashes", "Wet Road Crashes"]
+                  "All Crashes", "Single Vehicle Crashes", "Curve Crashes", "Wet Road Crashes", "Intersection Crashes"]
 EB_df = pd.DataFrame(EB_data, index=[district_list_EB, filter_list_EB], columns=["Empirical Bayes CMF", "CMF Standard Deviation"])
 EB_df
 
